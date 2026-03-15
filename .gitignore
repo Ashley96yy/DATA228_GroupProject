@@ -7,3 +7,4 @@ data/curated/
 data/tmp/
 
 *.crc
+third_party/*.jar
