@@ -34,11 +34,22 @@ If you want this to load automatically in future terminals:
 echo 'source /opt/homebrew/share/google-cloud-sdk/path.zsh.inc' >> ~/.zshrc
 ```
 
+## Go To The Repo Root
+
+Run the following commands from the root of this repository.
+
+Example:
+
+```bash
+cd /path/to/DATA228_GroupProject
+```
+
 ## Authenticate
 
 Run:
 
 ```bash
+export CLOUDSDK_CONFIG="$PWD/.gcloud-config"
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project digital-layout-475700-c2
@@ -53,6 +64,22 @@ gcloud storage ls gs://data228/bts_ontime/
 ```
 
 If this works, your access is configured correctly.
+
+## Troubleshooting
+
+### I do not see the project in Google Cloud Console
+
+That does not necessarily mean access is wrong.
+
+- The shared access for this project is primarily at the bucket level.
+- You may still be able to read `gs://data228/...` even if the project does not show up in the Cloud Console project picker.
+- The real check is whether this command works:
+
+```bash
+gcloud storage ls gs://data228/bts_ontime/
+```
+
+If the command fails with a permission error, ask to be granted bucket access again.
 
 ## Read The Dataset
 
@@ -93,6 +120,7 @@ third_party/gcs-connector-hadoop3-2.2.30-shaded.jar
 Run:
 
 ```bash
+export CLOUDSDK_CONFIG="$PWD/.gcloud-config"
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project digital-layout-475700-c2
