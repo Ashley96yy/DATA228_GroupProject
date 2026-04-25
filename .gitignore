@@ -1,9 +1,12 @@
 .DS_Store
 __pycache__/
 .gcloud-config/
+.venv/
 
 data/raw/
 data/curated/
+data/feature/
+data/model/
 data/tmp/
 
 *.crc
