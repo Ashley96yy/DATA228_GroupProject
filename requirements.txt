@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pyspark==3.5.8
+setuptools
+numpy
+mlflow

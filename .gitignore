@@ -2,6 +2,7 @@
 __pycache__/
 .gcloud-config/
 .venv/
+mlruns/
 
 data/raw/
 data/curated/

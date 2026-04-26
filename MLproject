@@ -1,0 +1,54 @@
+name: bts-delay-project
+
+python_env: python_env.yaml
+
+entry_points:
+  build_features:
+    parameters:
+      input: {type: str, default: "data/curated/bts_ontime"}
+      output: {type: str, default: "data/feature/bts_delay_15"}
+    command: >
+      python build_bts_delay_features.py
+      --input {input}
+      --output {output}
+      --overwrite
+
+  train_baseline:
+    parameters:
+      input: {type: str, default: "data/feature/bts_delay_15"}
+      output_dir: {type: str, default: "data/model/bts_delay_lr_baseline"}
+      train_sample_frac: {type: float, default: 0.002}
+      valid_sample_frac: {type: float, default: 0.01}
+      test_sample_frac: {type: float, default: 0.01}
+    command: >
+      python train_bts_delay_model.py
+      --input {input}
+      --output-dir {output_dir}
+      --train-sample-frac {train_sample_frac}
+      --valid-sample-frac {valid_sample_frac}
+      --test-sample-frac {test_sample_frac}
+      --overwrite
+
+  train_experiments:
+    parameters:
+      input: {type: str, default: "data/feature/bts_delay_15"}
+      tracking_uri: {type: str, default: "file:./mlruns"}
+      experiment_name: {type: str, default: "bts-delay-experiments"}
+      models: {type: str, default: "lr,rf"}
+      primary_metric: {type: str, default: "valid_pr_auc"}
+      train_sample_frac: {type: float, default: 1.0}
+      valid_sample_frac: {type: float, default: 1.0}
+      test_sample_frac: {type: float, default: 1.0}
+      best_model_output: {type: str, default: "data/model/bts_delay_best"}
+    command: >
+      python train_bts_delay_mlflow.py
+      --input {input}
+      --tracking-uri {tracking_uri}
+      --experiment-name {experiment_name}
+      --models {models}
+      --primary-metric {primary_metric}
+      --train-sample-frac {train_sample_frac}
+      --valid-sample-frac {valid_sample_frac}
+      --test-sample-frac {test_sample_frac}
+      --best-model-output {best_model_output}
+      --overwrite-best-model

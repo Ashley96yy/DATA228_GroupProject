@@ -1,0 +1,6 @@
+python: "3.12.5"
+build_dependencies:
+  - pip==26.0.1
+  - setuptools==82.0.1
+dependencies:
+  - -r requirements.txt
