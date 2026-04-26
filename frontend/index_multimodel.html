@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>BTS Delay Predictor</title>
+  <style>
+    :root {
+      --bg-1: #eef8f6;
+      --bg-2: #f8fbfd;
+      --panel: rgba(255, 255, 255, 0.9);
+      --panel-strong: #ffffff;
+      --ink: #102128;
+      --muted: #5a6e78;
+      --line: #d8e7eb;
+      --accent: #0f9d87;
+      --accent-deep: #087d6c;
+      --warning: #ff8c42;
+      --shadow: 0 24px 60px rgba(17, 43, 53, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(15, 157, 135, 0.16), transparent 24%),
+        radial-gradient(circle at bottom left, rgba(255, 140, 66, 0.16), transparent 28%),
+        linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 28px));
+      margin: 28px auto 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .hero {
+      padding: 10px 4px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      width: 100%;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15, 157, 135, 0.1);
+      color: var(--accent-deep);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(36px, 5vw, 64px);
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    .hero-pill {
+      width: 100%;
+      min-width: 230px;
+      padding: 18px 20px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(216, 231, 235, 0.9);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-pill span {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .hero-pill strong {
+      display: block;
+      font-size: 26px;
+      margin-bottom: 8px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 22px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(216, 231, 235, 0.95);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .form-card {
+      padding: 28px;
+    }
+
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    .card-title > div:first-child {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-title h2 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      letter-spacing: -0.03em;
+    }
+
+    .card-title p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .badge {
+      flex-shrink: 0;
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(16, 33, 40, 0.05);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .badge strong {
+      display: block;
+      color: var(--ink);
+      font-size: 17px;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px 16px;
+    }
+
+    .field,
+    .field.full {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    .field-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .field-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -3px;
+    }
+
+    .select-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    input,
+    select,
+    button {
+      font: inherit;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: rgba(15, 157, 135, 0.5);
+      box-shadow: 0 0 0 4px rgba(15, 157, 135, 0.08);
+    }
+
+    input[readonly] {
+      background: #f4f8f9;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      min-width: 190px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+      color: white;
+    }
+
+    .secondary {
+      background: rgba(255, 140, 66, 0.12);
+      color: #b65b21;
+    }
+
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .result-card,
+    .chat-card,
+    .tips-card,
+    .json-card {
+      padding: 24px;
+    }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .result-head h3,
+    .tips-card h3,
+    .json-card h3 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    .result-head p,
+    .tips-card p,
+    .json-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .live {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15, 157, 135, 0.1);
+      color: var(--accent-deep);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .score-ring {
+      display: grid;
+      place-items: center;
+      width: 180px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      margin: 6px auto 18px;
+      background:
+        radial-gradient(circle, rgba(255,255,255,0.92) 55%, transparent 56%),
+        conic-gradient(var(--accent) 0deg, var(--accent) 0deg, rgba(16, 33, 40, 0.08) 0deg 360deg);
+      transition: background 220ms ease;
+    }
+
+    .score-ring strong {
+      display: block;
+      font-size: 40px;
+      letter-spacing: -0.05em;
+    }
+
+    .score-ring span {
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .summary {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(216, 231, 235, 0.9);
+    }
+
+    .summary span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .summary strong {
+      font-size: 21px;
+    }
+
+    .status {
+      margin-top: 16px;
+      min-height: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: #b23f2f;
+    }
+
+    .tips-grid {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .risk-legend {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(216, 231, 235, 0.9);
+      display: grid;
+      gap: 10px;
+    }
+
+    .risk-legend-title {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 700;
+    }
+
+    .risk-legend-row {
+      display: grid;
+      grid-template-columns: 84px 1fr;
+      gap: 10px;
+      align-items: baseline;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .risk-legend-row strong {
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .chat-shell {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .chat-messages {
+      display: grid;
+      gap: 12px;
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .chat-message {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(216, 231, 235, 0.9);
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .chat-message.user {
+      background: rgba(15, 157, 135, 0.1);
+      border-color: rgba(15, 157, 135, 0.18);
+    }
+
+    .chat-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 700;
+    }
+
+    .chat-tool {
+      color: var(--accent-deep);
+    }
+
+    .chat-text {
+      margin: 0;
+      line-height: 1.6;
+      color: var(--ink);
+      white-space: pre-wrap;
+    }
+
+    .chat-details {
+      margin-top: 12px;
+      border-top: 1px solid rgba(216, 231, 235, 0.9);
+      padding-top: 10px;
+    }
+
+    .chat-details summary {
+      cursor: pointer;
+      color: var(--accent-deep);
+      font-size: 13px;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .chat-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .chat-details pre {
+      margin-top: 10px;
+      min-height: 0;
+      max-height: 220px;
+      font-size: 12px;
+    }
+
+    .debug-panel {
+      margin-top: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(216, 231, 235, 0.9);
+      background: rgba(255, 255, 255, 0.68);
+      overflow: hidden;
+    }
+
+    .debug-panel summary {
+      cursor: pointer;
+      padding: 16px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      list-style: none;
+    }
+
+    .debug-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .debug-panel p {
+      padding: 0 18px 0;
+      margin: 0;
+    }
+
+    .debug-panel pre {
+      margin: 12px 18px 18px;
+      min-height: 0;
+      max-height: 320px;
+    }
+
+    .chat-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .chat-form input {
+      min-height: 52px;
+    }
+
+    .chat-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .prompt-chip {
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(16, 33, 40, 0.05);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tip {
+      padding: 15px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(216, 231, 235, 0.9);
+    }
+
+    .tip strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .tip span {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    pre {
+      margin: 16px 0 0;
+      min-height: 160px;
+      padding: 18px;
+      border-radius: 20px;
+      background: #102128;
+      color: #edf7f4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.55;
+      overflow: auto;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid,
+      form {
+        grid-template-columns: 1fr;
+      }
+
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Flight Delay Predictor · DATA 228</div>
+        <h1>Estimate Delay Risk Before Wheels Up</h1>
+        <p class="lead">
+          Enter flight schedule details to estimate whether the arrival delay will exceed
+          15 minutes. Airport region codes, route distance, and elapsed time are derived
+          automatically in the backend.
+        </p>
+      </div>
+      <div class="hero-pill">
+        <span>Dataset Coverage</span>
+        <strong>1987–2025</strong>
+        <span>Historical training coverage. Future scheduled flights can still be scored using learned patterns.</span>
+      </div>
+    </section>
+
+    <section class="layout">
+      <section class="card form-card">
+        <div class="card-title">
+          <div>
+            <h2>Flight Details</h2>
+            <p>Provide scheduled flight metadata. The backend derives the model features and returns a delay-risk score.</p>
+          </div>
+        <div class="badge">
+            <span id="modelSourceLabel">Deployed Model</span>
+            <strong id="modelSourceDetail">Loading...</strong>
+        </div>
+      </div>
+
+        <form id="predictForm">
+          <label class="field">
+            <span class="field-label">Year</span>
+            <span class="field-note">Scheduled departure year</span>
+            <input name="year" type="number" min="1987" max="2100" value="2024" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Month</span>
+            <span class="field-note">Scheduled departure month</span>
+            <input name="month" type="number" min="1" max="12" value="1" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Origin Airport</span>
+            <span class="field-note">Choose a departure airport</span>
+            <select name="origin" required>
+              <option value="ATL">ATL · Atlanta, GA</option>
+              <option value="BOS">BOS · Boston, MA</option>
+              <option value="CLT" selected>CLT · Charlotte, NC</option>
+              <option value="DCA">DCA · Washington, DC</option>
+              <option value="DEN">DEN · Denver, CO</option>
+              <option value="DFW">DFW · Dallas/Fort Worth, TX</option>
+              <option value="DTW">DTW · Detroit, MI</option>
+              <option value="EWR">EWR · Newark, NJ</option>
+              <option value="IAD">IAD · Washington Dulles, VA</option>
+              <option value="IAH">IAH · Houston, TX</option>
+              <option value="JFK">JFK · New York, NY</option>
+              <option value="LAS">LAS · Las Vegas, NV</option>
+              <option value="LAX">LAX · Los Angeles, CA</option>
+              <option value="MCO">MCO · Orlando, FL</option>
+              <option value="MIA">MIA · Miami, FL</option>
+              <option value="MSP">MSP · Minneapolis, MN</option>
+              <option value="ORD">ORD · Chicago, IL</option>
+              <option value="PDX">PDX · Portland, OR</option>
+              <option value="PHL">PHL · Philadelphia, PA</option>
+              <option value="PHX">PHX · Phoenix, AZ</option>
+              <option value="SAN">SAN · San Diego, CA</option>
+              <option value="SAT">SAT · San Antonio, TX</option>
+              <option value="SEA">SEA · Seattle, WA</option>
+              <option value="SFO">SFO · San Francisco, CA</option>
+              <option value="SJC">SJC · San Jose, CA</option>
+              <option value="SBN">SBN · South Bend, IN</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Destination Airport</span>
+            <span class="field-note">Choose an arrival airport</span>
+            <select name="dest" required>
+              <option value="ATL">ATL · Atlanta, GA</option>
+              <option value="BOS">BOS · Boston, MA</option>
+              <option value="CLT">CLT · Charlotte, NC</option>
+              <option value="DCA">DCA · Washington, DC</option>
+              <option value="DEN">DEN · Denver, CO</option>
+              <option value="DFW">DFW · Dallas/Fort Worth, TX</option>
+              <option value="DTW">DTW · Detroit, MI</option>
+              <option value="EWR">EWR · Newark, NJ</option>
+              <option value="IAD">IAD · Washington Dulles, VA</option>
+              <option value="IAH">IAH · Houston, TX</option>
+              <option value="JFK">JFK · New York, NY</option>
+              <option value="LAS">LAS · Las Vegas, NV</option>
+              <option value="LAX">LAX · Los Angeles, CA</option>
+              <option value="MCO">MCO · Orlando, FL</option>
+              <option value="MIA">MIA · Miami, FL</option>
+              <option value="MSP">MSP · Minneapolis, MN</option>
+              <option value="ORD">ORD · Chicago, IL</option>
+              <option value="PDX">PDX · Portland, OR</option>
+              <option value="PHL">PHL · Philadelphia, PA</option>
+              <option value="PHX">PHX · Phoenix, AZ</option>
+              <option value="SAN">SAN · San Diego, CA</option>
+              <option value="SAT">SAT · San Antonio, TX</option>
+              <option value="SEA">SEA · Seattle, WA</option>
+              <option value="SFO">SFO · San Francisco, CA</option>
+              <option value="SJC">SJC · San Jose, CA</option>
+              <option value="SBN" selected>SBN · South Bend, IN</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Carrier</span>
+            <span class="field-note">Choose an airline code</span>
+            <select name="carrier" required>
+              <option value="AA">AA · American Airlines</option>
+              <option value="AS">AS · Alaska Airlines</option>
+              <option value="B6">B6 · JetBlue</option>
+              <option value="DL">DL · Delta Air Lines</option>
+              <option value="F9">F9 · Frontier Airlines</option>
+              <option value="G4">G4 · Allegiant Air</option>
+              <option value="HA">HA · Hawaiian Airlines</option>
+              <option value="MQ">MQ · Envoy Air</option>
+              <option value="NK">NK · Spirit Airlines</option>
+              <option value="OH" selected>OH · PSA Airlines</option>
+              <option value="OO">OO · SkyWest Airlines</option>
+              <option value="UA">UA · United Airlines</option>
+              <option value="WN">WN · Southwest Airlines</option>
+              <option value="YV">YV · Mesa Airlines</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Day of Week</span>
+            <span class="field-note">1 = Monday, 7 = Sunday</span>
+            <select name="day_of_week">
+              <option value="1">1 · Monday</option>
+              <option value="2" selected>2 · Tuesday</option>
+              <option value="3">3 · Wednesday</option>
+              <option value="4">4 · Thursday</option>
+              <option value="5">5 · Friday</option>
+              <option value="6">6 · Saturday</option>
+              <option value="7">7 · Sunday</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Day of Month</span>
+            <span class="field-note">Calendar day</span>
+            <input name="day_of_month" type="number" min="1" max="31" value="15" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Scheduled Departure</span>
+            <span class="field-note">24-hour clock</span>
+            <input name="crs_dep_time" type="time" value="21:11" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Scheduled Arrival</span>
+            <span class="field-note">24-hour clock</span>
+            <input name="crs_arr_time" type="time" value="23:10" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Scheduled Elapsed Time</span>
+            <span class="field-note">Automatically derived from departure and arrival</span>
+            <input name="scheduled_elapsed_time" type="text" inputmode="numeric" pattern="^\\d{1,2}:\\d{2}$" value="01:59" readonly required />
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit">Predict Delay</button>
+            <button class="secondary" type="button" id="sampleBtn">Use Sample Flight</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side">
+        <section class="card result-card">
+          <div class="result-head">
+            <div>
+              <h3>Prediction Result</h3>
+              <p>Live API response from <code id="predictionEndpoint">/predict_delay</code>.</p>
+            </div>
+            <div class="live">Live</div>
+          </div>
+
+          <div class="score-ring" id="scoreRing">
+            <div>
+              <strong id="probabilityText">--</strong>
+              <span>Delay Risk</span>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary">
+              <span>Predicted Class</span>
+              <strong id="classText">--</strong>
+            </div>
+            <div class="summary">
+              <span>Risk Band</span>
+              <strong id="riskText">--</strong>
+            </div>
+            <div class="summary">
+              <span>Model Family</span>
+              <strong id="modelFamilyText">Loading...</strong>
+            </div>
+            <div class="summary">
+              <span>Feature Layer</span>
+              <strong id="featureLayerText">33 fields</strong>
+            </div>
+          </div>
+
+          <div class="risk-legend">
+            <div class="risk-legend-title">Risk Bands</div>
+            <div class="risk-legend-row"><strong>Low</strong><span>Below 35%</span></div>
+            <div class="risk-legend-row"><strong>Medium</strong><span>35% to 65%</span></div>
+            <div class="risk-legend-row"><strong>High</strong><span>Above 65%</span></div>
+          </div>
+
+          <div class="status" id="statusText">Ready for prediction.</div>
+        </section>
+
+        <section class="card json-card">
+          <h3>Debug Payload</h3>
+          <p>Collapsed by default. Expand it only when you want to show the raw backend payload during a demo.</p>
+          <details class="debug-panel">
+            <summary>Show raw prediction payload</summary>
+            <pre id="responseBox">No prediction yet.</pre>
+          </details>
+        </section>
+      </aside>
+    </section>
+
+    <section class="card chat-card">
+      <h3>MCP Chatbox</h3>
+      <p>This assistant can route questions to project tools. If an OpenAI API key is configured, the backend uses an LLM agent to decide which tool to call.</p>
+      <div class="chat-shell">
+        <div class="chat-prompts">
+          <button class="prompt-chip" type="button" data-chat-prompt="predict this flight">Predict this flight</button>
+          <button class="prompt-chip" type="button" data-chat-prompt="explain this prediction">Explain this prediction</button>
+          <button class="prompt-chip" type="button" data-chat-prompt="what is the route distance?">What is the route distance?</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-message">
+            <div class="chat-meta">
+              <span>Assistant</span>
+              <span class="chat-tool">tool router</span>
+            </div>
+            <p class="chat-text">Ask about the current form: "predict this flight", "explain this prediction", or "what is the route distance?"</p>
+          </div>
+        </div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" type="text" placeholder="Ask about the current flight scenario..." required />
+          <button class="primary" type="submit">Send</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("predictForm");
+    const statusText = document.getElementById("statusText");
+    const responseBox = document.getElementById("responseBox");
+    const probabilityText = document.getElementById("probabilityText");
+    const classText = document.getElementById("classText");
+    const riskText = document.getElementById("riskText");
+    const sampleBtn = document.getElementById("sampleBtn");
+    const scoreRing = document.getElementById("scoreRing");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const chatMessages = document.getElementById("chatMessages");
+    const promptChips = document.querySelectorAll("[data-chat-prompt]");
+    const depTimeInput = form.elements["crs_dep_time"];
+    const arrTimeInput = form.elements["crs_arr_time"];
+    const elapsedInput = form.elements["scheduled_elapsed_time"];
+    const modelSourceLabel = document.getElementById("modelSourceLabel");
+    const modelSourceDetail = document.getElementById("modelSourceDetail");
+    const modelFamilyText = document.getElementById("modelFamilyText");
+    const featureLayerText = document.getElementById("featureLayerText");
+    const predictionEndpoint = document.getElementById("predictionEndpoint");
+
+    function setStatus(message, isError = false) {
+      statusText.textContent = message;
+      statusText.className = isError ? "status error" : "status";
+    }
+
+    function getRiskBand(probability) {
+      if (probability >= 0.65) return "High";
+      if (probability >= 0.35) return "Medium";
+      return "Low";
+    }
+
+    function getRiskAngle(probability) {
+      return Math.max(0, Math.min(360, probability * 360));
+    }
+
+    function updateRing(probability) {
+      const angle = getRiskAngle(probability);
+      scoreRing.style.background =
+        `radial-gradient(circle, rgba(255,255,255,0.92) 55%, transparent 56%), ` +
+        `conic-gradient(var(--accent) 0deg, var(--warning) ${angle}deg, rgba(16, 33, 40, 0.08) ${angle}deg 360deg)`;
+    }
+
+    function parseClockToMinutes(value) {
+      const [hours, minutes] = value.split(":").map(Number);
+      if (
+        Number.isNaN(hours) || Number.isNaN(minutes) ||
+        hours < 0 || hours > 23 || minutes < 0 || minutes > 59
+      ) {
+        return null;
+      }
+      return hours * 60 + minutes;
+    }
+
+    function minutesToDuration(totalMinutes) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    }
+
+    function updateElapsedTime() {
+      const depMinutes = parseClockToMinutes(depTimeInput.value);
+      const arrMinutes = parseClockToMinutes(arrTimeInput.value);
+      if (depMinutes === null || arrMinutes === null) {
+        elapsedInput.value = "";
+        return;
+      }
+
+      let elapsedMinutes = arrMinutes - depMinutes;
+      if (elapsedMinutes <= 0) {
+        elapsedMinutes += 24 * 60;
+      }
+      elapsedInput.value = minutesToDuration(elapsedMinutes);
+    }
+
+    async function loadAppConfig() {
+      try {
+        const response = await fetch("/app_config");
+        const config = await response.json();
+        if (!response.ok) {
+          throw new Error("Failed to load app configuration");
+        }
+        modelSourceLabel.textContent = config.source_label || "Deployed Model";
+        modelSourceDetail.textContent = config.source_detail || "Loaded model";
+        modelFamilyText.textContent = config.model_family || "Unknown";
+        featureLayerText.textContent = config.feature_layer || "33 fields";
+        predictionEndpoint.textContent = config.prediction_endpoint || "/predict_delay";
+      } catch (error) {
+        modelSourceLabel.textContent = "Deployed Model";
+        modelSourceDetail.textContent = "Unable to load model metadata";
+        modelFamilyText.textContent = "Unknown";
+      }
+    }
+
+    function payloadFromForm() {
+      const data = new FormData(form);
+      const numericFields = new Set([
+        "month",
+        "year",
+        "day_of_month",
+        "day_of_week",
+        "crs_dep_time",
+        "crs_arr_time"
+      ]);
+
+      function parseClockToHHMM(value) {
+        const [hours, minutes] = value.split(":").map(Number);
+        if (
+          Number.isNaN(hours) || Number.isNaN(minutes) ||
+          hours < 0 || hours > 23 || minutes < 0 || minutes > 59
+        ) {
+          throw new Error(`Invalid clock time: ${value}`);
+        }
+        return hours * 100 + minutes;
+      }
+
+      const payload = {};
+      for (const [key, value] of data.entries()) {
+        if (key === "crs_dep_time" || key === "crs_arr_time") {
+          payload[key] = parseClockToHHMM(value);
+        } else if (key === "scheduled_elapsed_time") {
+          continue;
+        } else {
+          payload[key] = numericFields.has(key) ? Number(value) : value.trim().toUpperCase();
+        }
+      }
+      return payload;
+    }
+
+    function appendChatMessage(role, text, toolName = "", toolOutput = null) {
+      const wrapper = document.createElement("div");
+      wrapper.className = `chat-message ${role}`;
+
+      const meta = document.createElement("div");
+      meta.className = "chat-meta";
+      meta.innerHTML = `<span>${role === "user" ? "You" : "Assistant"}</span><span class="chat-tool">${toolName || (role === "user" ? "input" : "response")}</span>`;
+
+      const body = document.createElement("p");
+      body.className = "chat-text";
+      body.textContent = text;
+
+      wrapper.appendChild(meta);
+      wrapper.appendChild(body);
+
+      if (role !== "user" && toolOutput && Object.keys(toolOutput).length > 0) {
+        const details = document.createElement("details");
+        details.className = "chat-details";
+
+        const summary = document.createElement("summary");
+        summary.textContent = `Tool used: ${toolName}`;
+
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(toolOutput, null, 2);
+
+        details.appendChild(summary);
+        details.appendChild(pre);
+        wrapper.appendChild(details);
+      }
+
+      chatMessages.appendChild(wrapper);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function submitPrediction(payload) {
+      setStatus("Requesting prediction...");
+      responseBox.textContent = "Loading...";
+
+      try {
+        const response = await fetch("/predict_delay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          const detail = typeof result.detail === "string"
+            ? result.detail
+            : JSON.stringify(result.detail ?? result);
+          throw new Error(detail || "Prediction failed");
+        }
+
+        const probability = Number(result.probability_delay_15 || 0);
+        probabilityText.textContent = `${(probability * 100).toFixed(1)}%`;
+        classText.textContent = result.prediction_delay_15 === 1 ? "Delay ≥ 15 min" : "Delay < 15 min";
+        riskText.textContent = getRiskBand(probability);
+        updateRing(probability);
+        responseBox.textContent = JSON.stringify(result, null, 2);
+        setStatus("Prediction completed.");
+      } catch (error) {
+        probabilityText.textContent = "--";
+        classText.textContent = "--";
+        riskText.textContent = "--";
+        updateRing(0);
+        responseBox.textContent = String(error);
+        setStatus(String(error), true);
+      }
+    }
+
+    async function submitChat(message) {
+      appendChatMessage("user", message);
+      chatInput.value = "";
+
+      try {
+        const response = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            flight_context: payloadFromForm()
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          const detail = typeof result.detail === "string"
+            ? result.detail
+            : JSON.stringify(result.detail ?? result);
+          throw new Error(detail || "Chat request failed");
+        }
+
+        appendChatMessage("assistant", result.assistant_message, result.tool_name, result.tool_output);
+      } catch (error) {
+        appendChatMessage("assistant", String(error), "error");
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await submitPrediction(payloadFromForm());
+    });
+
+    chatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+      await submitChat(message);
+    });
+
+    for (const chip of promptChips) {
+      chip.addEventListener("click", async () => {
+        await submitChat(chip.dataset.chatPrompt);
+      });
+    }
+
+    sampleBtn.addEventListener("click", async () => {
+      form.month.value = 1;
+      form.year.value = 2024;
+      form.day_of_month.value = 15;
+      form.day_of_week.value = 2;
+      form.carrier.value = "OH";
+      form.origin.value = "CLT";
+      form.dest.value = "SBN";
+      form.crs_dep_time.value = "21:11";
+      form.crs_arr_time.value = "23:10";
+      updateElapsedTime();
+      await submitPrediction(payloadFromForm());
+    });
+
+    depTimeInput.addEventListener("input", updateElapsedTime);
+    arrTimeInput.addEventListener("input", updateElapsedTime);
+    loadAppConfig();
+    updateElapsedTime();
+    updateRing(0);
+  </script>
+</body>
+</html>

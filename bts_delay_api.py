@@ -16,7 +16,7 @@ from pathlib import Path
 import re
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 from pyspark.ml import PipelineModel
 from pyspark.sql import SparkSession
@@ -31,10 +31,58 @@ from llm_agent import openai_available, run_llm_chat
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "data/model/bts_delay_lr_baseline")
 BASE_DIR = Path(__file__).resolve().parent
-FRONTEND_PATH = BASE_DIR / "frontend" / "index.html"
+SINGLE_MODEL_FRONTEND_PATH = BASE_DIR / "frontend" / "index.html"
+MULTI_MODEL_FRONTEND_PATH = BASE_DIR / "frontend" / "index_multimodel.html"
 
 spark: SparkSession | None = None
 model: PipelineModel | None = None
+
+
+def humanize_model_family(stage_name: str) -> str:
+    mapping = {
+        "LogisticRegressionModel": "Logistic Regression",
+        "RandomForestClassificationModel": "Random Forest",
+        "GBTClassificationModel": "Gradient-Boosted Trees",
+    }
+    return mapping.get(stage_name, stage_name.replace("Model", "").replace("Classification", " Classification"))
+
+
+def short_model_family(model_family: str) -> str:
+    mapping = {
+        "Logistic Regression": "LR",
+        "Random Forest": "RF",
+        "Gradient-Boosted Trees": "GBT",
+    }
+    return mapping.get(model_family, model_family)
+
+
+def infer_model_metadata(model_path: str, loaded_model: PipelineModel | None) -> dict[str, str]:
+    model_dir = Path(model_path).name
+    model_family = "Unknown"
+    if loaded_model is not None and loaded_model.stages:
+        model_family = humanize_model_family(type(loaded_model.stages[-1]).__name__)
+    model_short = short_model_family(model_family)
+
+    source_label = "Deployed Model"
+    source_detail = f"{model_short} Active"
+    lower_path = model_path.lower()
+    if "best" in lower_path:
+        source_label = "Selected Model"
+        source_detail = f"{model_short} Best"
+    elif "baseline" in lower_path:
+        source_label = "Baseline Model"
+        source_detail = f"{model_short} Baseline"
+
+    return {
+        "model_family": model_family,
+        "model_path": model_path,
+        "model_dir": model_dir,
+        "model_short": model_short,
+        "source_label": source_label,
+        "source_detail": source_detail,
+        "feature_layer": "33 fields",
+        "prediction_endpoint": "/predict_delay",
+    }
 
 
 class DelayPredictionRequest(BaseModel):
@@ -114,6 +162,7 @@ def root() -> dict[str, str]:
     return {
         "message": "BTS delay prediction API is running.",
         "app": "/app",
+        "app_multimodel": "/app_multimodel",
         "docs": "/docs",
         "health": "/health",
         "predict": "/predict_delay",
@@ -121,11 +170,37 @@ def root() -> dict[str, str]:
     }
 
 
+@app.get("/app_config")
+def app_config() -> dict[str, str]:
+    return infer_model_metadata(MODEL_PATH, model)
+
+
 @app.get("/app")
-def app_page() -> FileResponse:
-    if not FRONTEND_PATH.exists():
+def app_page() -> HTMLResponse:
+    if not SINGLE_MODEL_FRONTEND_PATH.exists():
         raise HTTPException(status_code=404, detail="frontend not found")
-    return FileResponse(FRONTEND_PATH)
+    return HTMLResponse(
+        SINGLE_MODEL_FRONTEND_PATH.read_text(encoding="utf-8"),
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+
+@app.get("/app_multimodel")
+def app_multimodel_page() -> HTMLResponse:
+    if not MULTI_MODEL_FRONTEND_PATH.exists():
+        raise HTTPException(status_code=404, detail="multimodel frontend not found")
+    return HTMLResponse(
+        MULTI_MODEL_FRONTEND_PATH.read_text(encoding="utf-8"),
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.post("/predict_delay", response_model=DelayPredictionResponse)
