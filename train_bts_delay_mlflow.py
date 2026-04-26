@@ -33,6 +33,7 @@ from typing import Any
 
 import mlflow
 import mlflow.spark
+from mlflow.tracking import MlflowClient
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import GBTClassifier, LogisticRegression, RandomForestClassifier
@@ -129,6 +130,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--best-model-output",
         default="data/model/bts_delay_best",
         help="directory where the best model will be exported",
+    )
+    parser.add_argument(
+        "--registered-model-name",
+        default=None,
+        help=(
+            "optional MLflow registered model name; if provided, each candidate "
+            "model run will be registered as a new version under this name"
+        ),
+    )
+    parser.add_argument(
+        "--best-model-alias",
+        default="champion",
+        help="alias assigned to the selected best model version in Model Registry",
+    )
+    parser.add_argument(
+        "--await-registration-for",
+        type=int,
+        default=300,
+        help="seconds to wait for MLflow model registration to complete",
     )
     parser.add_argument(
         "--overwrite-best-model",
@@ -395,6 +415,7 @@ def main() -> int:
 
     mlflow.set_tracking_uri(args.tracking_uri)
     mlflow.set_experiment(args.experiment_name)
+    client = MlflowClient()
 
     spark = SparkSession.builder.appName(args.app_name).getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
@@ -429,6 +450,8 @@ def main() -> int:
         print(f"sampled_test_rows: {sampled_test_rows}")
 
         leaderboard: list[dict[str, Any]] = []
+        child_run_ids: list[str] = []
+        registered_versions: dict[str, dict[str, str]] = {}
         best_model = None
         best_model_name = None
         best_score = float("-inf")
@@ -447,6 +470,8 @@ def main() -> int:
                     "input": args.input,
                     "models": ",".join(selected_models),
                     "primary_metric": args.primary_metric,
+                    "registered_model_name": args.registered_model_name or "",
+                    "best_model_alias": args.best_model_alias,
                     "min_year": "" if args.min_year is None else args.min_year,
                     "max_year": "" if args.max_year is None else args.max_year,
                     "train_sample_frac": args.train_sample_frac,
@@ -474,7 +499,14 @@ def main() -> int:
             for model_name in selected_models:
                 print(f"\n=== training {model_name} ===")
                 with mlflow.start_run(run_name=model_name, nested=True) as child_run:
+                    child_run_ids.append(child_run.info.run_id)
                     mlflow.log_params(model_params(model_name, args))
+                    mlflow.set_tags(
+                        {
+                            "selection_status": "candidate",
+                            "model_name": model_name,
+                        }
+                    )
                     pipeline = build_pipeline(model_name, args)
                     model = pipeline.fit(sampled_train_df)
 
@@ -497,6 +529,51 @@ def main() -> int:
                     )
 
                     score = metrics[args.primary_metric]
+                    registered_version = None
+                    if args.registered_model_name:
+                        model_uri = f"runs:/{child_run.info.run_id}/model"
+                        registered_version = mlflow.register_model(
+                            model_uri=model_uri,
+                            name=args.registered_model_name,
+                            await_registration_for=args.await_registration_for,
+                            tags={
+                                "model_name": model_name,
+                                "selection_metric": args.primary_metric,
+                                "selection_score": str(score),
+                                "source_run_id": child_run.info.run_id,
+                                "source_experiment": args.experiment_name,
+                            },
+                        )
+                        version_str = str(registered_version.version)
+                        registered_versions[child_run.info.run_id] = {
+                            "model_name": model_name,
+                            "version": version_str,
+                        }
+                        mlflow.log_params(
+                            {
+                                "registered_model_name": args.registered_model_name,
+                                "registered_model_version": version_str,
+                            }
+                        )
+                        mlflow.set_tags(
+                            {
+                                "registered_model_name": args.registered_model_name,
+                                "registered_model_version": version_str,
+                            }
+                        )
+                        client.set_model_version_tag(
+                            args.registered_model_name,
+                            version_str,
+                            "model_name",
+                            model_name,
+                        )
+                        client.set_model_version_tag(
+                            args.registered_model_name,
+                            version_str,
+                            "selection_status",
+                            "candidate",
+                        )
+
                     leaderboard_entry = {
                         "model_name": model_name,
                         "run_id": child_run.info.run_id,
@@ -522,6 +599,12 @@ def main() -> int:
             mlflow.log_params(
                 {
                     "best_model_name": best_model_name,
+                    "best_model_run_id": best_child_run_id or "",
+                }
+            )
+            mlflow.set_tags(
+                {
+                    "best_model_name": best_model_name or "",
                     "best_model_run_id": best_child_run_id or "",
                 }
             )
@@ -551,12 +634,65 @@ def main() -> int:
             mlflow.log_param("best_model_output", args.best_model_output)
             mlflow.set_tag("best_model_exported", "true")
 
+            for child_run_id in child_run_ids:
+                child_status = "champion" if child_run_id == best_child_run_id else "challenger"
+                client.set_tag(child_run_id, "selection_status", child_status)
+                client.set_tag(child_run_id, "is_best_model", str(child_run_id == best_child_run_id).lower())
+
+            champion_version = None
+            if args.registered_model_name and best_child_run_id in registered_versions:
+                champion_version = registered_versions[best_child_run_id]["version"]
+                client.set_registered_model_alias(
+                    args.registered_model_name,
+                    args.best_model_alias,
+                    champion_version,
+                )
+                for child_run_id, details in registered_versions.items():
+                    version = details["version"]
+                    status = "champion" if child_run_id == best_child_run_id else "challenger"
+                    is_best = "true" if child_run_id == best_child_run_id else "false"
+                    client.set_model_version_tag(
+                        args.registered_model_name,
+                        version,
+                        "selection_status",
+                        status,
+                    )
+                    client.set_model_version_tag(
+                        args.registered_model_name,
+                        version,
+                        "is_best_model",
+                        is_best,
+                    )
+                    client.set_model_version_tag(
+                        args.registered_model_name,
+                        version,
+                        "source_run_id",
+                        child_run_id,
+                    )
+                mlflow.log_params(
+                    {
+                        "registered_model_name": args.registered_model_name,
+                        "registered_model_version": champion_version,
+                    }
+                )
+                mlflow.set_tags(
+                    {
+                        "registered_model_name": args.registered_model_name,
+                        "registered_model_version": champion_version,
+                        "best_model_alias": args.best_model_alias,
+                    }
+                )
+
             print("\n=== best model ===")
             print(f"parent_run_id: {parent_run.info.run_id}")
             print(f"best_model_name: {best_model_name}")
             print(f"best_model_run_id: {best_child_run_id}")
             print(f"{args.primary_metric}: {best_score:.6f}")
             print(f"best_model_output: {args.best_model_output}")
+            if champion_version is not None:
+                print(f"registered_model_name: {args.registered_model_name}")
+                print(f"registered_model_version: {champion_version}")
+                print(f"best_model_alias: {args.best_model_alias}")
     finally:
         spark.stop()
 
