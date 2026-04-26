@@ -1,4 +1,4 @@
-# MLflow Reproducibility Guide
+# MLFLOW PIPELINE GUIDE
 
 This project includes an MLflow-based training workflow so the team can show:
 
@@ -328,7 +328,35 @@ For the main sampled experiment in this guide, that is:
 
 - `data/model/bts_delay_best_recent_3models_sampled`
 
-## 10. Use MLproject for Reproducibility
+## 10. Open the Prediction UI
+
+After you start the API with the exported best model:
+
+```bash
+cd "$PROJECT_ROOT"
+source .venv/bin/activate
+MODEL_PATH=data/model/bts_delay_best_recent_3models_sampled python -m uvicorn bts_delay_api:app --reload
+```
+
+Open one of these pages in the browser:
+
+- `http://127.0.0.1:8000/app`
+  - original single-model UI kept from the repository
+  - shows the baseline page and static single-model labels
+- `http://127.0.0.1:8000/app_multimodel`
+  - multi-model UI for the MLflow workflow
+  - reads the deployed best-model metadata from `/app_config`
+  - shows labels such as `Selected Model`, `GBT Best`, and `Gradient-Boosted Trees`
+
+Recommended demo flow:
+
+1. Open MLflow at `http://127.0.0.1:5001`.
+2. Show the three-model comparison and the selected best run.
+3. Open `http://127.0.0.1:8000/app_multimodel`.
+4. Click `Use Sample Flight` or fill in a flight and then click `Predict Delay`.
+5. Show that the UI is using the exported best model rather than the original single-model baseline page.
+
+## 11. Use MLproject (Optional) for Reproducibility
 
 `MLproject` is the reproducible entry point for rerunning the same workflow in a
 standardized way.
@@ -358,22 +386,6 @@ Note:
   directly through `train_bts_delay_mlflow.py`
 - `mlflow run` is still useful to show reproducible reruns with the same
   environment and parameters on a local feature copy
-
-## 11. Deploy the Best Model in the API
-
-After a run completes:
-
-```bash
-cd "$PROJECT_ROOT"
-source .venv/bin/activate
-MODEL_PATH=data/model/bts_delay_best_recent_3models_sampled python -m uvicorn bts_delay_api:app --reload
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/app
-```
 
 ## 12. Troubleshooting
 
