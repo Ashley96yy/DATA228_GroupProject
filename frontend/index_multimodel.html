@@ -199,6 +199,13 @@
       margin-top: -3px;
     }
 
+    .field-recommendation {
+      font-size: 12px;
+      color: var(--accent-deep);
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
     .select-hint {
       font-size: 12px;
       color: var(--muted);
@@ -632,6 +639,16 @@
       </div>
 
         <form id="predictForm">
+          <label class="field full">
+            <span class="field-label">Prediction Model</span>
+            <span class="field-note">Choose which deployed model to use for this request</span>
+            <select name="model_id" id="modelSelect" required>
+              <option value="lr">LR Baseline</option>
+              <option value="rf">RF Best</option>
+              <option value="gbt">GBT Best</option>
+            </select>
+            <span class="field-recommendation" id="modelRecommendation">Recommended: loading...</span>
+          </label>
           <label class="field">
             <span class="field-label">Year</span>
             <span class="field-note">Scheduled departure year</span>
@@ -870,6 +887,25 @@
     const modelFamilyText = document.getElementById("modelFamilyText");
     const featureLayerText = document.getElementById("featureLayerText");
     const predictionEndpoint = document.getElementById("predictionEndpoint");
+    const modelSelect = document.getElementById("modelSelect");
+    const modelRecommendation = document.getElementById("modelRecommendation");
+    let recommendedModelId = "rf";
+    let recommendedModelLabel = "";
+
+    function optionLabelForModel(modelId) {
+      const option = [...modelSelect.options].find((item) => item.value === modelId);
+      return option ? option.textContent : modelId.toUpperCase();
+    }
+
+    function updateModelRecommendationText() {
+      const selectedId = modelSelect.value;
+      const recommendedLabel = recommendedModelLabel || optionLabelForModel(recommendedModelId);
+      if (selectedId === recommendedModelId) {
+        modelRecommendation.textContent = `Recommended model selected: ${recommendedLabel}`;
+      } else {
+        modelRecommendation.textContent = `Recommended: ${recommendedLabel}`;
+      }
+    }
 
     function setStatus(message, isError = false) {
       statusText.textContent = message;
@@ -932,6 +968,28 @@
         if (!response.ok) {
           throw new Error("Failed to load app configuration");
         }
+        const availableModels = Array.isArray(config.available_models) ? config.available_models : [];
+        const defaultModelId = config.default_model_id || "lr";
+
+        if (availableModels.length > 0) {
+          modelSelect.innerHTML = "";
+          for (const item of availableModels) {
+            const option = document.createElement("option");
+            option.value = item.id;
+            option.textContent = item.label || item.id.toUpperCase();
+            if (item.id === defaultModelId) {
+              option.selected = true;
+            }
+            modelSelect.appendChild(option);
+          }
+        } else {
+          modelSelect.value = defaultModelId;
+        }
+
+        recommendedModelId = config.recommended_model_id || defaultModelId || "rf";
+        recommendedModelLabel = config.recommended_model_label || "";
+        updateModelRecommendationText();
+
         modelSourceLabel.textContent = config.source_label || "Deployed Model";
         modelSourceDetail.textContent = config.source_detail || "Loaded model";
         modelFamilyText.textContent = config.model_family || "Unknown";
@@ -941,6 +999,7 @@
         modelSourceLabel.textContent = "Deployed Model";
         modelSourceDetail.textContent = "Unable to load model metadata";
         modelFamilyText.textContent = "Unknown";
+        updateModelRecommendationText();
       }
     }
 
@@ -1036,6 +1095,10 @@
         probabilityText.textContent = `${(probability * 100).toFixed(1)}%`;
         classText.textContent = result.prediction_delay_15 === 1 ? "Delay ≥ 15 min" : "Delay < 15 min";
         riskText.textContent = getRiskBand(probability);
+        modelSourceLabel.textContent = "Prediction Model";
+        modelSourceDetail.textContent = result.model_label || payload.model_id?.toUpperCase() || "Selected model";
+        modelFamilyText.textContent = result.model_family || "Unknown";
+        updateModelRecommendationText();
         updateRing(probability);
         responseBox.textContent = JSON.stringify(result, null, 2);
         setStatus("Prediction completed.");
@@ -1096,6 +1159,7 @@
     }
 
     sampleBtn.addEventListener("click", async () => {
+      modelSelect.value = "lr";
       form.month.value = 1;
       form.year.value = 2024;
       form.day_of_month.value = 15;
@@ -1111,6 +1175,13 @@
 
     depTimeInput.addEventListener("input", updateElapsedTime);
     arrTimeInput.addEventListener("input", updateElapsedTime);
+    modelSelect.addEventListener("change", () => {
+      const label = modelSelect.options[modelSelect.selectedIndex]?.textContent || modelSelect.value.toUpperCase();
+      modelSourceLabel.textContent = "Selected Model";
+      modelSourceDetail.textContent = label;
+      modelFamilyText.textContent = "Loading...";
+      updateModelRecommendationText();
+    });
     loadAppConfig();
     updateElapsedTime();
     updateRing(0);

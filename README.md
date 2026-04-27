@@ -6,9 +6,9 @@ This repo currently includes:
 
 - data download and conversion scripts
 - Spark feature engineering
-- a baseline Spark ML model
+- baseline and multi-model Spark ML training workflows
 - a FastAPI backend
-- a lightweight frontend
+- a single-model frontend and a multi-model frontend
 - an MCP-style chatbox
 - a minimal MCP stdio server
 
@@ -18,12 +18,15 @@ This repo currently includes:
 - `convert_bts_ontime_to_parquet.py`: convert raw ZIP files to curated partitioned Parquet
 - `build_bts_delay_features.py`: build the model-ready feature dataset
 - `train_bts_delay_model.py`: train the baseline delay classifier
+- `train_bts_delay_mlflow.py`: compare multiple models with MLflow tracking
 - `bts_delay_api.py`: FastAPI app for prediction and chat
 - `bts_delay_mcp_server.py`: minimal stdio MCP server
-- `frontend/index.html`: project UI
+- `frontend/index.html`: original single-model UI
+- `frontend/index_multimodel.html`: multi-model UI with deployed-model selection
 - `delay_tools.py`: shared prediction and route utility layer
 - `GCS_SETUP.md`: GCS access instructions
 - `MCP_SETUP.md`: MCP and chat setup instructions
+- `MLFLOW_PIPELINE_GUIDE.md`: MLflow training, comparison, and deployment guide
 
 ## What Is In Git And What Is Not
 
@@ -48,6 +51,13 @@ Current shared GCS artifact paths:
 - feature dataset: `gs://data228/feature/bts_delay_15/`
 - trained model: `gs://data228/model/bts_delay_lr_baseline/`
 
+Additional local model directories currently used by the multi-model UI:
+
+- `data/model/bts_delay_lr_baseline`
+- `data/model/bts_delay_rf_best`
+- `data/model/bts_delay_gbt_best`
+- `data/model/bts_delay_best_recent_3models`
+
 ## Quick Start For Teammates
 
 Use this path if someone mainly wants to run the UI and API, not rebuild the entire pipeline.
@@ -68,9 +78,9 @@ python -m pip install --upgrade pip
 python -m pip install fastapi uvicorn pyspark==3.5.8 setuptools
 ```
 
-### 3. Get the trained model directory
+### 3. Get the required model directories
 
-You need a local copy of:
+At minimum, the original single-model UI needs:
 
 ```text
 data/model/bts_delay_lr_baseline
@@ -90,6 +100,19 @@ Example copy command:
 gcloud storage cp -r gs://data228/model/bts_delay_lr_baseline data/model/
 ```
 
+If you want the multi-model UI to work, you also need these local directories:
+
+```text
+data/model/bts_delay_rf_best
+data/model/bts_delay_gbt_best
+data/model/bts_delay_best_recent_3models
+```
+
+The multi-model page uses:
+
+- `lr`, `rf`, and `gbt` as switchable deployed models
+- `data/model/bts_delay_best_recent_3models` to infer the current recommended model
+
 ### 4. Start the API and UI
 
 ```bash
@@ -97,11 +120,17 @@ source .venv/bin/activate
 python -m uvicorn bts_delay_api:app --reload
 ```
 
-Open:
+Open either UI:
 
 ```text
 http://127.0.0.1:8000/app
+http://127.0.0.1:8000/app_multimodel
 ```
+
+Use:
+
+- `/app` for the original single-model baseline page
+- `/app_multimodel` for the deployed multi-model selector page
 
 ### 5. Optional: enable LLM chat
 
@@ -196,17 +225,32 @@ If you only need the already-trained model instead of retraining it:
 gcloud storage cp -r gs://data228/model/bts_delay_lr_baseline data/model/
 ```
 
-### 5. Start the API and UI
+### 5. Train and export multi-model artifacts
+
+For the multi-model workflow, the currently expected local directories are:
+
+```text
+data/model/bts_delay_rf_best
+data/model/bts_delay_gbt_best
+data/model/bts_delay_best_recent_3models
+```
+
+See:
+
+- [MLFLOW_PIPELINE_GUIDE.md](/Users/dingyuyao/Documents/SJSU/Spring2026/DATA228/GroupProject/MLFLOW_PIPELINE_GUIDE.md)
+
+### 6. Start the API and UI
 
 ```bash
 source .venv/bin/activate
 python -m uvicorn bts_delay_api:app --reload
 ```
 
-Open:
+Open either UI:
 
 ```text
 http://127.0.0.1:8000/app
+http://127.0.0.1:8000/app_multimodel
 ```
 
 ## MCP And Chat
@@ -215,6 +259,8 @@ This project includes both:
 
 - a browser chatbox exposed through `/chat`
 - a minimal stdio MCP server
+
+The chat endpoint now follows the selected model from the multi-model form. If the page is using `rf`, the chat requests use `rf` too.
 
 See:
 
@@ -229,9 +275,15 @@ python bts_delay_mcp_server.py
 
 ## Current Model Scope
 
-The current baseline model predicts whether a flight will arrive at least 15 minutes late.
+The project predicts whether a flight will arrive at least 15 minutes late.
 
-It uses scheduled-flight information available before departure, including:
+Available deployed model families:
+
+- Logistic Regression
+- Random Forest
+- Gradient-Boosted Trees
+
+The deployed models use scheduled-flight information available before departure, including:
 
 - date context
 - scheduled departure and arrival time
@@ -249,5 +301,7 @@ This means future scheduled flights can still be scored using learned historical
 ## Notes
 
 - This is a baseline model, not a real-time operational delay system.
-- The UI is designed for demoability first.
+- `/app` is the stable single-model baseline page.
+- `/app_multimodel` is the multi-model deployment page.
+- The multi-model page shows a `recommended model` derived from the exported best-model directory, not from a hardcoded UI constant.
 - The current repo is runnable with the right local model files, but true end-to-end reproducibility still depends on data and model access being shared clearly across the team.

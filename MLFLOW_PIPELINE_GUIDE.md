@@ -5,6 +5,7 @@ This project includes an MLflow-based training workflow so the team can show:
 - reproducible experiment tracking
 - comparison across multiple models instead of only one baseline
 - deployment of the selected best model into the FastAPI app
+- a multi-model UI that can switch among exported deployed models
 
 ## Key Paths
 
@@ -15,6 +16,10 @@ This guide does not assume a specific folder layout. The important paths are:
 - `PROJECT_ROOT/run_spark_with_gcs.sh`: helper script for Spark jobs that read `gs://` paths
 - `PROJECT_ROOT/data/feature/bts_delay_15/`: local copy of the prepared feature dataset
 - `PROJECT_ROOT/data/model/`: exported trained models
+- `PROJECT_ROOT/data/model/bts_delay_lr_baseline/`: original baseline deployment model
+- `PROJECT_ROOT/data/model/bts_delay_rf_best/`: exported random forest deployment model
+- `PROJECT_ROOT/data/model/bts_delay_gbt_best/`: exported GBT deployment model
+- `PROJECT_ROOT/data/model/bts_delay_best_recent_3models/`: exported recommended best-model directory used by the multi-model UI
 - `PROJECT_ROOT/mlruns/`: local MLflow tracking store when using `file:./mlruns`
 - `GOOGLE_APPLICATION_CREDENTIALS`: Application Default Credentials JSON for Google Cloud
 - `CONNECTOR_JAR`: the GCS Spark connector jar, typically `gcs-connector-hadoop3-2.2.30-shaded.jar`
@@ -43,6 +48,11 @@ The command below uses:
 - best-model tags in MLflow such as `selection_status=champion`
 
 This is the recommended default because it is realistic for a local laptop.
+
+Important distinction:
+
+- the comparison run decides which model is currently recommended
+- the deployed multi-model UI still expects separately exported `lr`, `rf`, and `gbt` directories so the user can switch models at inference time
 
 ## 1. Install Dependencies
 
@@ -100,7 +110,7 @@ source .venv/bin/activate
   --train-sample-frac 0.01 \
   --valid-sample-frac 0.02 \
   --test-sample-frac 0.02 \
-  --best-model-output data/model/bts_delay_best_recent_3models_sampled \
+  --best-model-output data/model/bts_delay_best_recent_3models \
   --overwrite-best-model
 ```
 
@@ -130,6 +140,46 @@ command in this guide uses:
 
 This still produces a meaningful multi-model comparison while staying practical
 for local development.
+
+## 5A. Export Per-Model Directories For Deployment
+
+The FastAPI multi-model page does not switch among MLflow run IDs directly. It switches among exported Spark model directories.
+
+For that reason, keep these local deployment directories available:
+
+- `data/model/bts_delay_lr_baseline`
+- `data/model/bts_delay_rf_best`
+- `data/model/bts_delay_gbt_best`
+
+Example commands:
+
+```bash
+spark-submit train_bts_delay_mlflow.py \
+  --input data/feature/bts_delay_15 \
+  --tracking-uri file:./mlruns \
+  --experiment-name bts-delay-rf-single \
+  --models rf \
+  --min-year 2022 \
+  --train-sample-frac 0.01 \
+  --valid-sample-frac 0.02 \
+  --test-sample-frac 0.02 \
+  --best-model-output data/model/bts_delay_rf_best \
+  --overwrite-best-model
+```
+
+```bash
+spark-submit train_bts_delay_mlflow.py \
+  --input data/feature/bts_delay_15 \
+  --tracking-uri file:./mlruns \
+  --experiment-name bts-delay-gbt-single \
+  --models gbt \
+  --min-year 2022 \
+  --train-sample-frac 0.01 \
+  --valid-sample-frac 0.02 \
+  --test-sample-frac 0.02 \
+  --best-model-output data/model/bts_delay_gbt_best \
+  --overwrite-best-model
+```
 
 ## 6. How to Change the Range or Scale
 
@@ -326,16 +376,25 @@ The selected model is written to the directory passed in:
 
 For the main sampled experiment in this guide, that is:
 
-- `data/model/bts_delay_best_recent_3models_sampled`
+- `data/model/bts_delay_best_recent_3models`
 
 ## 10. Open the Prediction UI
 
-After you start the API with the exported best model:
+The backend now has two relevant concepts:
+
+- `MODEL_PATH`
+  - the single deployed default model loaded at startup
+- `RECOMMENDED_MODEL_PATH`
+  - the exported best-model directory used to label the currently recommended model in the multi-model UI
+
+Example startup:
 
 ```bash
 cd "$PROJECT_ROOT"
 source .venv/bin/activate
-MODEL_PATH=data/model/bts_delay_best_recent_3models_sampled python -m uvicorn bts_delay_api:app --reload
+MODEL_PATH=data/model/bts_delay_lr_baseline \
+RECOMMENDED_MODEL_PATH=data/model/bts_delay_best_recent_3models \
+python -m uvicorn bts_delay_api:app --reload
 ```
 
 Open one of these pages in the browser:
@@ -345,8 +404,9 @@ Open one of these pages in the browser:
   - shows the baseline page and static single-model labels
 - `http://127.0.0.1:8000/app_multimodel`
   - multi-model UI for the MLflow workflow
-  - reads the deployed best-model metadata from `/app_config`
-  - shows labels such as `Selected Model`, `GBT Best`, and `Gradient-Boosted Trees`
+  - supports switching among `lr`, `rf`, and `gbt`
+  - reads the recommended model from `RECOMMENDED_MODEL_PATH`
+  - keeps chat aligned with the currently selected model
 
 Recommended demo flow:
 
@@ -354,7 +414,8 @@ Recommended demo flow:
 2. Show the three-model comparison and the selected best run.
 3. Open `http://127.0.0.1:8000/app_multimodel`.
 4. Click `Use Sample Flight` or fill in a flight and then click `Predict Delay`.
-5. Show that the UI is using the exported best model rather than the original single-model baseline page.
+5. Switch between `LR`, `RF`, and `GBT` to show deployed model selection.
+6. Point out that the `recommended model` label is derived from the exported best-model directory, not hardcoded in the UI.
 
 ## 11. Use MLproject (Optional) for Reproducibility
 
