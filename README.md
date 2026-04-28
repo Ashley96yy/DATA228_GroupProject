@@ -300,7 +300,7 @@ This means future scheduled flights can still be scored using learned historical
 
 ## Notes
 
-- This is a baseline model, not a real-time operational delay system.
+- This is a historical-pattern delay prediction system, not a real-time operational delay system.
 - `/app` is the stable single-model baseline page.
 - `/app_multimodel` is the multi-model deployment page.
 - The multi-model page shows a `recommended model` derived from the exported best-model directory, not from a hardcoded UI constant.
