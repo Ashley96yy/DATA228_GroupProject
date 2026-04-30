@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -112,6 +113,7 @@
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
       gap: 22px;
+      align-items: start;
     }
 
     .card {
@@ -134,7 +136,7 @@
       margin-bottom: 20px;
     }
 
-    .card-title > div:first-child {
+    .card-title>div:first-child {
       flex: 1;
       min-width: 0;
     }
@@ -330,7 +332,7 @@
       border-radius: 50%;
       margin: 6px auto 18px;
       background:
-        radial-gradient(circle, rgba(255,255,255,0.92) 55%, transparent 56%),
+        radial-gradient(circle, rgba(255, 255, 255, 0.92) 55%, transparent 56%),
         conic-gradient(var(--accent) 0deg, var(--accent) 0deg, rgba(16, 33, 40, 0.08) 0deg 360deg);
       transition: background 220ms ease;
     }
@@ -356,7 +358,7 @@
     }
 
     .summary {
-      padding: 16px;
+      padding: 14px;
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.68);
       border: 1px solid rgba(216, 231, 235, 0.9);
@@ -372,7 +374,8 @@
     }
 
     .summary strong {
-      font-size: 21px;
+      font-size: 18px;
+      line-height: 1.2;
     }
 
     .status {
@@ -398,8 +401,6 @@
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.68);
       border: 1px solid rgba(216, 231, 235, 0.9);
-      display: grid;
-      gap: 10px;
     }
 
     .risk-legend-title {
@@ -408,20 +409,92 @@
       text-transform: uppercase;
       letter-spacing: 0.07em;
       font-weight: 700;
+      margin-bottom: 10px;
     }
 
-    .risk-legend-row {
+    .risk-legend-grid {
       display: grid;
-      grid-template-columns: 84px 1fr;
-      gap: 10px;
-      align-items: baseline;
-      font-size: 14px;
-      color: var(--muted);
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+
     }
 
-    .risk-legend-row strong {
+    .risk-legend-col {
+      display: grid;
+      gap: 4px;
+    }
+
+    .risk-legend-col strong {
       color: var(--ink);
       font-size: 14px;
+    }
+
+    .risk-legend-col span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .summary-block {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(216, 231, 235, 0.9);
+    }
+
+    .summary-block h4 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+
+    .summary-block p,
+    .summary-block div {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .summary-section {
+      margin-top: 12px;
+    }
+
+    .summary-section strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .input-summary-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 14px;
+      margin-top: 4px;
+    }
+
+    .input-summary-group {
+      display: grid;
+      gap: 4px;
+    }
+
+    .input-summary-item {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 4px;
+      align-items: baseline;
+    }
+
+    .input-summary-item strong {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.0;
+    }
+
+    .input-summary-item span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.0;
     }
 
     .chat-shell {
@@ -436,6 +509,7 @@
       max-height: 320px;
       overflow: auto;
       padding-right: 4px;
+      justify-items: stretch;
     }
 
     .chat-message {
@@ -443,6 +517,7 @@
       border-radius: 18px;
       border: 1px solid rgba(216, 231, 235, 0.9);
       background: rgba(255, 255, 255, 0.72);
+      width: 100%
     }
 
     .chat-message.user {
@@ -471,6 +546,8 @@
       line-height: 1.6;
       color: var(--ink);
       white-space: pre-wrap;
+      text-align: left;
+      width: 100%;
     }
 
     .chat-details {
@@ -606,6 +683,7 @@
     }
   </style>
 </head>
+
 <body>
   <main class="page">
     <section class="hero">
@@ -630,13 +708,14 @@
         <div class="card-title">
           <div>
             <h2>Flight Details</h2>
-            <p>Provide scheduled flight metadata. The backend derives the model features and returns a delay-risk score.</p>
+            <p>Provide scheduled flight metadata. The backend derives the model features and returns a delay-risk score.
+            </p>
           </div>
-        <div class="badge">
+          <div class="badge">
             <span id="modelSourceLabel">Deployed Model</span>
             <strong id="modelSourceDetail">Loading...</strong>
+          </div>
         </div>
-      </div>
 
         <form id="predictForm">
           <label class="field full">
@@ -774,13 +853,21 @@
           <label class="field">
             <span class="field-label">Scheduled Elapsed Time</span>
             <span class="field-note">Automatically derived from departure and arrival</span>
-            <input name="scheduled_elapsed_time" type="text" inputmode="numeric" pattern="^\\d{1,2}:\\d{2}$" value="01:59" readonly required />
+            <input name="scheduled_elapsed_time" type="text" inputmode="numeric" pattern="^\\d{1,2}:\\d{2}$"
+              value="01:59" readonly required />
           </label>
           <div class="actions">
             <button class="primary" type="submit">Predict Delay</button>
             <button class="secondary" type="button" id="sampleBtn">Use Sample Flight</button>
           </div>
         </form>
+        <div class="summary-block">
+          <h4>Model Context</h4>
+          <div>
+            This page lets you compare deployed model families on the same flight input using scheduled pre-departure
+            information and historical BTS patterns.
+          </div>
+        </div>
       </section>
 
       <aside class="side">
@@ -815,39 +902,63 @@
             </div>
             <div class="summary">
               <span>Feature Layer</span>
-              <strong id="featureLayerText">33 fields</strong>
+              <strong id="featureLayerText">Shared feature set</strong>
             </div>
           </div>
 
           <div class="risk-legend">
             <div class="risk-legend-title">Risk Bands</div>
-            <div class="risk-legend-row"><strong>Low</strong><span>Below 35%</span></div>
-            <div class="risk-legend-row"><strong>Medium</strong><span>35% to 65%</span></div>
-            <div class="risk-legend-row"><strong>High</strong><span>Above 65%</span></div>
+            <div class="risk-legend-grid">
+              <div class="risk-legend-col">
+                <strong>Low</strong>
+                <span>Below 35%</span>
+              </div>
+              <div class="risk-legend-col">
+                <strong>Medium</strong>
+                <span>35% to 65%</span>
+              </div>
+              <div class="risk-legend-col">
+                <strong>High</strong>
+                <span>Above 65%</span>
+              </div>
+            </div>
           </div>
 
           <div class="status" id="statusText">Ready for prediction.</div>
+
+          <div class="summary-block">
+            <h4>Prediction Summary</h4>
+            <div class="summary-section">
+              <strong>Input Summary</strong>
+              <div id="inputSummary">No prediction yet.</div>
+            </div>
+            <div class="summary-section">
+              <strong>Model Summary</strong>
+              <div id="modelSummary">No model selected yet.</div>
+            </div>
+            <details class="debug-panel">
+              <summary>Show raw prediction payload</summary>
+              <pre id="responseBox">No prediction yet.</pre>
+            </details>
+          </div>
+
         </section>
 
-        <section class="card json-card">
-          <h3>Debug Payload</h3>
-          <p>Collapsed by default. Expand it only when you want to show the raw backend payload during a demo.</p>
-          <details class="debug-panel">
-            <summary>Show raw prediction payload</summary>
-            <pre id="responseBox">No prediction yet.</pre>
-          </details>
-        </section>
+
       </aside>
     </section>
 
     <section class="card chat-card">
       <h3>MCP Chatbox</h3>
-      <p>This assistant can route questions to project tools. If an OpenAI API key is configured, the backend uses an LLM agent to decide which tool to call.</p>
+      <p>This assistant can route questions to project tools. If an OpenAI API key is configured, the backend uses an
+        LLM agent to decide which tool to call.</p>
       <div class="chat-shell">
         <div class="chat-prompts">
           <button class="prompt-chip" type="button" data-chat-prompt="predict this flight">Predict this flight</button>
-          <button class="prompt-chip" type="button" data-chat-prompt="explain this prediction">Explain this prediction</button>
-          <button class="prompt-chip" type="button" data-chat-prompt="what is the route distance?">What is the route distance?</button>
+          <button class="prompt-chip" type="button" data-chat-prompt="explain this prediction">Explain this
+            prediction</button>
+          <button class="prompt-chip" type="button" data-chat-prompt="what is the route distance?">What is the route
+            distance?</button>
         </div>
         <div class="chat-messages" id="chatMessages">
           <div class="chat-message">
@@ -855,7 +966,8 @@
               <span>Assistant</span>
               <span class="chat-tool">tool router</span>
             </div>
-            <p class="chat-text">Ask about the current form: "predict this flight", "explain this prediction", or "what is the route distance?"</p>
+            <p class="chat-text">Ask about the current form: "predict this flight", "explain this prediction", or "what
+              is the route distance?"</p>
           </div>
         </div>
         <form class="chat-form" id="chatForm">
@@ -889,6 +1001,8 @@
     const predictionEndpoint = document.getElementById("predictionEndpoint");
     const modelSelect = document.getElementById("modelSelect");
     const modelRecommendation = document.getElementById("modelRecommendation");
+    const inputSummary = document.getElementById("inputSummary");
+    const modelSummary = document.getElementById("modelSummary");
     let recommendedModelId = "rf";
     let recommendedModelLabel = "";
 
@@ -907,6 +1021,57 @@
       }
     }
 
+    function weekdayLabel(day) {
+      const labels = {
+        1: "Monday",
+        2: "Tuesday",
+        3: "Wednesday",
+        4: "Thursday",
+        5: "Friday",
+        6: "Saturday",
+        7: "Sunday"
+      };
+      return labels[day] || String(day);
+    }
+
+    function buildInputSummary(payload) {
+      const dep = form.elements["crs_dep_time"].value;
+      const arr = form.elements["crs_arr_time"].value;
+      const elapsed = form.elements["scheduled_elapsed_time"].value;
+
+      return `
+        <div class="input-summary-columns">
+          <div class="input-summary-group">
+            <div class="input-summary-item"><strong>Route</strong><span>${payload.origin} → ${payload.dest}</span></div>
+            <div class="input-summary-item"><strong>Carrier</strong><span>${payload.carrier}</span></div>
+            <div class="input-summary-item"><strong>Date</strong><span>${payload.year}-${String(payload.month).padStart(2, "0")}-${String(payload.day_of_month).padStart(2, "0")}</span></div>
+            <div class="input-summary-item"><strong>Weekday</strong><span>${weekdayLabel(payload.day_of_week)}</span></div>
+          </div>
+          <div class="input-summary-group">
+            <div class="input-summary-item"><strong>Departure</strong><span>${dep}</span></div>
+            <div class="input-summary-item"><strong>Arrival</strong><span>${arr}</span></div>
+            <div class="input-summary-item"><strong>Elapsed</strong><span>${elapsed}</span></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildModelSummary(result, payload) {
+      const selectedLabel =
+        result.model_label ||
+        modelSelect.options[modelSelect.selectedIndex]?.textContent ||
+        payload.model_id?.toUpperCase() ||
+        "Selected model";
+
+      const family = result.model_family || "Unavailable";
+      const recommended = recommendedModelLabel || optionLabelForModel(recommendedModelId);
+
+      return `
+        Selected: ${selectedLabel}<br>
+        Family: ${family}<br>
+        Recommended: ${recommended}
+      `;
+    }
     function setStatus(message, isError = false) {
       statusText.textContent = message;
       statusText.className = isError ? "status error" : "status";
@@ -993,12 +1158,12 @@
         modelSourceLabel.textContent = config.source_label || "Deployed Model";
         modelSourceDetail.textContent = config.source_detail || "Loaded model";
         modelFamilyText.textContent = config.model_family || "Unknown";
-        featureLayerText.textContent = config.feature_layer || "33 fields";
+        featureLayerText.textContent = config.feature_layer || "Shared feature set";
         predictionEndpoint.textContent = config.prediction_endpoint || "/predict_delay";
       } catch (error) {
         modelSourceLabel.textContent = "Deployed Model";
-        modelSourceDetail.textContent = "Unable to load model metadata";
-        modelFamilyText.textContent = "Unknown";
+        modelSourceDetail.textContent = "Metadata unavailable";
+        modelFamilyText.textContent = "Unavailable";
         updateModelRecommendationText();
       }
     }
@@ -1102,6 +1267,8 @@
         updateRing(probability);
         responseBox.textContent = JSON.stringify(result, null, 2);
         setStatus("Prediction completed.");
+        inputSummary.innerHTML = buildInputSummary(payload);
+        modelSummary.innerHTML = buildModelSummary(result, payload);
       } catch (error) {
         probabilityText.textContent = "--";
         classText.textContent = "--";
@@ -1109,6 +1276,8 @@
         updateRing(0);
         responseBox.textContent = String(error);
         setStatus(String(error), true);
+        inputSummary.textContent = "No prediction available.";
+        modelSummary.textContent = "Model information unavailable.";
       }
     }
 
@@ -1187,4 +1356,5 @@
     updateRing(0);
   </script>
 </body>
+
 </html>
