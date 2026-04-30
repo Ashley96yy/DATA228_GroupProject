@@ -92,7 +92,7 @@ def infer_model_metadata(
         "model_short": model_short,
         "source_label": source_label,
         "source_detail": source_detail,
-        "feature_layer": "33 fields",
+        "feature_layer": "Shared feature set",
         "prediction_endpoint": "/predict_delay",
     }
 
@@ -287,7 +287,7 @@ def root() -> dict[str, str]:
 
 
 @app.get("/app_config")
-def app_config() -> dict[str, str]:
+def app_config() -> dict[str, object]:
     model_id, entry, model = get_model(DEPLOYED_MODEL_ID)
     config = infer_model_metadata(model_id, entry["path"], model)
     config["default_model_id"] = model_id

@@ -2,6 +2,9 @@
 
 Flight delay risk prediction using the BTS on-time performance dataset.
 
+
+## Project Overview
+
 This repo currently includes:
 
 - data download and conversion scripts
@@ -11,6 +14,10 @@ This repo currently includes:
 - a single-model frontend and a multi-model frontend
 - an MCP-style chatbox
 - a minimal MCP stdio server
+
+The current deployed prediction task is:
+
+**Will a flight arrive at least 15 minutes late?**
 
 ## Repo Layout
 
@@ -27,6 +34,7 @@ This repo currently includes:
 - `GCS_SETUP.md`: GCS access instructions
 - `MCP_SETUP.md`: MCP and chat setup instructions
 - `MLFLOW_PIPELINE_GUIDE.md`: MLflow training, comparison, and deployment guide
+- `experiments/` — exploratory work and non-mainline experiments
 
 ## What Is In Git And What Is Not
 
@@ -58,7 +66,7 @@ Additional local model directories currently used by the multi-model UI:
 - `data/model/bts_delay_gbt_best`
 - `data/model/bts_delay_best_recent_3models`
 
-## Quick Start For Teammates
+## Minimal Local Run
 
 Use this path if someone mainly wants to run the UI and API, not rebuild the entire pipeline.
 
@@ -78,7 +86,7 @@ python -m pip install --upgrade pip
 python -m pip install fastapi uvicorn pyspark==3.5.8 setuptools
 ```
 
-### 3. Get the required model directories
+### 3. Download the baseline model
 
 At minimum, the original single-model UI needs:
 
@@ -179,6 +187,11 @@ If you are running Spark locally against `gs://`, also follow the local connecto
 
 - [GCS_SETUP.md](/Users/dingyuyao/Documents/SJSU/Spring2026/DATA228/GroupProject/GCS_SETUP.md)
 
+This includes:
+
+- GCS connector jar setup
+- Application Default Credentials (ADC) setup
+
 ### 3. Build the feature dataset
 
 Local curated data path example:
@@ -239,6 +252,9 @@ See:
 
 - [MLFLOW_PIPELINE_GUIDE.md](/Users/dingyuyao/Documents/SJSU/Spring2026/DATA228/GroupProject/MLFLOW_PIPELINE_GUIDE.md)
 
+Note:
+Some multi-model local directories may depend on shared team artifacts and may not always be available in GCS by default. The baseline single-model path is the most stable setup.
+
 ### 6. Start the API and UI
 
 ```bash
@@ -298,10 +314,29 @@ Training coverage:
 
 This means future scheduled flights can still be scored using learned historical patterns.
 
-## Notes
+## Experimental Work
 
-- This is a historical-pattern delay prediction system, not a real-time operational delay system.
-- `/app` is the stable single-model baseline page.
-- `/app_multimodel` is the multi-model deployment page.
-- The multi-model page shows a `recommended model` derived from the exported best-model directory, not from a hardcoded UI constant.
-- The current repo is runnable with the right local model files, but true end-to-end reproducibility still depends on data and model access being shared clearly across the team.
+Exploratory work is preserved under:
+```text
+experiments/
+```
+In particular:
+
+```text
+experiments/historical_delay_small_subset/
+```
+contains a small-scale controlled experiment for historical delay-rate features, including:
+
+* airport-level historical delay rate
+* route-level historical delay rate
+
+This experiment is not part of the main production-like pipeline. It is preserved as exploratory work and future-work support.
+
+## Notes And Known Limitations
+
+* This is a historical-pattern delay prediction system, not a real-time operational delay system.
+* `/app`is the stable single-model baseline page.
+* `/app_multimodel`  is an extended UI that may depend on additional model artifacts.
+* End-to-end reproducibility still depends on shared access to data and model artifacts.
+* Full-data shuffle-heavy Spark jobs may exceed local disk limits on some laptops.
+* For local development, the baseline model path is the most reliable starting point.
